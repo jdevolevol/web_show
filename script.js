@@ -4,30 +4,28 @@ const navButtons = document.querySelectorAll(".nav-btn");
 const pages = {
   home: `
     <div class="card">
-    <h2>ผู้ช่วยอัจฉริยะ</h2>
+      <h2>ผู้ช่วยอัจฉริยะ</h2>
 
-    <div class="chat-container">
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="message ai">
+            สวัสดีครับ มีอะไรให้ช่วยไหม?
+          </div>
+        </div>
 
-      <div class="chat-messages" id="chatMessages">
-        <div class="message ai">
-          สวัสดีครับ มีอะไรให้ช่วยไหม?
+        <div class="chat-input-area">
+          <input
+            type="text"
+            id="chatInput"
+            placeholder="พิมพ์ข้อความ..."
+          />
+
+          <button id="sendBtn">
+            ส่ง
+          </button>
         </div>
       </div>
-
-      <div class="chat-input-area">
-        <input 
-          type="text" 
-          id="chatInput"
-          placeholder="พิมพ์ข้อความ..."
-        />
-
-        <button id="sendBtn">
-          ส่ง
-        </button>
-      </div>
-
     </div>
-  </div>
   `,
 
   map: `
@@ -54,7 +52,6 @@ const pages = {
 };
 
 function showPage(pageName) {
-
   content.innerHTML = pages[pageName];
 
   if (pageName === "home") {
@@ -79,9 +76,7 @@ navButtons.forEach((button) => {
 
 showPage("home");
 
-//ส่วนchat
 function setupChat() {
-
   const sendBtn = document.getElementById("sendBtn");
   const chatInput = document.getElementById("chatInput");
   const chatMessages = document.getElementById("chatMessages");
@@ -96,48 +91,59 @@ function setupChat() {
     }
   });
 
-  function sendMessage() {
-
+  async function sendMessage() {
     const text = chatInput.value.trim();
 
     if (text === "") return;
 
     addMessage(text, "user");
-
     chatInput.value = "";
 
-    setTimeout(() => {
+    addMessage("กำลังคิด...", "ai");
 
-      try {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: text
+        })
+      });
 
-  const response = await fetch("/api/chat", {
+      const data = await readJson(response);
 
-    method: "POST",
+      if (!response.ok) {
+        throw new Error(data.error || `API error ${response.status}`);
+      }
 
-    headers: {
-      "Content-Type": "application/json"
-    },
-
-    body: JSON.stringify({
-      message: text
-    })
-  });
-
-  const data = await response.json();
-
-  addMessage(data.reply, "ai");
-
-} catch (error) {
-
-  addMessage("ระบบผิดพลาด", "ai");
-
-}
-
-    }, 500);
+      setLastAiMessage(data.reply || "ไม่มีคำตอบกลับมา");
+    } catch (error) {
+      setLastAiMessage(`ระบบผิดพลาด: ${error.message}`);
+    }
   }
 
-  async function addMessage(text, sender) {
+  async function readJson(response) {
+    const text = await response.text();
 
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(
+        `API ไม่ได้ส่ง JSON กลับมา (${response.status}). ถ้าเปิดไฟล์ตรง ๆ หรือใช้ static server ให้รันผ่าน Vercel/Node API ก่อน`
+      );
+    }
+  }
+
+  function setLastAiMessage(text) {
+    const aiMessages = document.querySelectorAll(".message.ai");
+    const lastAiMessage = aiMessages[aiMessages.length - 1];
+
+    lastAiMessage.textContent = text;
+  }
+
+  function addMessage(text, sender) {
     const div = document.createElement("div");
 
     div.classList.add("message");
@@ -146,12 +152,6 @@ function setupChat() {
     div.textContent = text;
 
     chatMessages.appendChild(div);
-
     chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  function generateReply(message) {
-
-    return `คุณพิมพ์ว่า: "${message}"`;
   }
 }

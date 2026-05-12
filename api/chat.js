@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Method not allowed"
@@ -7,24 +6,30 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { message } = req.body || {};
 
-    const { message } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({
+        error: "Message is required"
+      });
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+      return res.status(500).json({
+        error: "OPENROUTER_API_KEY is not set"
+      });
+    }
 
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
-
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`
         },
-
         body: JSON.stringify({
-
           model: "qwen/qwen3-32b:free",
-
           messages: [
             {
               role: "system",
@@ -41,19 +46,26 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    const aiReply =
-      data.choices?.[0]?.message?.content ||
-      "เกิดข้อผิดพลาด";
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error?.message || data.message || "OpenRouter request failed"
+      });
+    }
 
-    res.status(200).json({
+    const aiReply = data.choices?.[0]?.message?.content;
+
+    if (!aiReply) {
+      return res.status(502).json({
+        error: "OpenRouter did not return a reply"
+      });
+    }
+
+    return res.status(200).json({
       reply: aiReply
     });
-
   } catch (error) {
-
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message
     });
-
   }
 }
