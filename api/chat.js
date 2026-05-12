@@ -29,7 +29,7 @@ export default async function handler(req, res) {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`
         },
         body: JSON.stringify({
-          model: "google/gemma-3-27b-it:free",
+          model: "qwen/qwen3-235b-a22b:free",
           messages: [
             {
               role: "system",
